@@ -7,6 +7,8 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.example.firestorestudentdirectory.databinding.ActivityMainBinding
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.firebase.auth.FirebaseAuth
+import android.widget.AdapterView
+import android.widget.ArrayAdapter
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
@@ -23,9 +25,22 @@ class MainActivity : AppCompatActivity() {
         binding.studentRecyclerView.layoutManager = LinearLayoutManager(this)
         binding.studentRecyclerView.adapter = adapter
 
+        val departments = listOf("All", "MIT", "PS", "CS", "bio science")
+        val spinnerAdapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, departments)
+        spinnerAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        binding.departmentSpinner.adapter = spinnerAdapter
+
+        binding.departmentSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: android.view.View?, position: Int, id: Long) {
+                val selected = departments[position]
+                loadStudents(if (selected == "All") null else selected)
+            }
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
+
         auth.signInAnonymously()
             .addOnSuccessListener {
-                loadStudents()
+                // loadStudents()
             }
             .addOnFailureListener { exception ->
                 Toast.makeText(this, "Sign-in failed: ${exception.message}", Toast.LENGTH_SHORT).show()
@@ -66,24 +81,29 @@ class MainActivity : AppCompatActivity() {
             }
     }
 
-    private fun loadStudents() {
-        db.collection("students")
-            .addSnapshotListener { result, exception ->
-                if (exception != null) {
-                    Toast.makeText(this, "Failed to load students: ${exception.message}", Toast.LENGTH_SHORT).show()
-                    return@addSnapshotListener
-                }
+    private fun loadStudents(department: String? = null) {
+        val query = if (department != null) {
+            db.collection("students").whereEqualTo("department", department)
+        } else {
+            db.collection("students")
+        }
 
-                if (result != null) {
-                    val students = result.map { document ->
-                        Student(
-                            name = document.getString("name") ?: "",
-                            registrationNo = document.getString("registrationNo") ?: "",
-                            department = document.getString("department") ?: ""
-                        )
-                    }
-                    adapter.updateList(students)
-                }
+        query.addSnapshotListener { result, exception ->
+            if (exception != null) {
+                Toast.makeText(this, "Failed to load students: ${exception.message}", Toast.LENGTH_SHORT).show()
+                return@addSnapshotListener
             }
+
+            if (result != null) {
+                val students = result.map { document ->
+                    Student(
+                        name = document.getString("name") ?: "",
+                        registrationNo = document.getString("registrationNo") ?: "",
+                        department = document.getString("department") ?: ""
+                    )
+                }
+                adapter.updateList(students)
+            }
+        }
     }
 }
