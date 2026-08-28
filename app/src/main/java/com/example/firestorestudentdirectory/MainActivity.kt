@@ -6,12 +6,13 @@ import androidx.appcompat.app.AppCompatActivity
 import com.google.firebase.firestore.FirebaseFirestore
 import com.example.firestorestudentdirectory.databinding.ActivityMainBinding
 import androidx.recyclerview.widget.LinearLayoutManager
-
+import com.google.firebase.auth.FirebaseAuth
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
     private lateinit var adapter: StudentAdapter
     private val db = FirebaseFirestore.getInstance()
+    private val auth = FirebaseAuth.getInstance()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -22,7 +23,13 @@ class MainActivity : AppCompatActivity() {
         binding.studentRecyclerView.layoutManager = LinearLayoutManager(this)
         binding.studentRecyclerView.adapter = adapter
 
-        loadStudents()
+        auth.signInAnonymously()
+            .addOnSuccessListener {
+                loadStudents()
+            }
+            .addOnFailureListener { exception ->
+                Toast.makeText(this, "Sign-in failed: ${exception.message}", Toast.LENGTH_SHORT).show()
+            }
 
         binding.addStudentButton.setOnClickListener {
             addStudent()
@@ -52,7 +59,7 @@ class MainActivity : AppCompatActivity() {
                 binding.nameEditText.text.clear()
                 binding.regNoEditText.text.clear()
                 binding.deptEditText.text.clear()
-                loadStudents()
+                //loadStudents() snapshot linstner handles this
             }
             .addOnFailureListener { exception ->
                 Toast.makeText(this, "Failed: ${exception.message}", Toast.LENGTH_SHORT).show()
@@ -61,19 +68,22 @@ class MainActivity : AppCompatActivity() {
 
     private fun loadStudents() {
         db.collection("students")
-            .get()
-            .addOnSuccessListener { result ->
-                val students = result.map { document ->
-                    Student(
-                        name = document.getString("name") ?: "",
-                        registrationNo = document.getString("registrationNo") ?: "",
-                        department = document.getString("department") ?: ""
-                    )
+            .addSnapshotListener { result, exception ->
+                if (exception != null) {
+                    Toast.makeText(this, "Failed to load students: ${exception.message}", Toast.LENGTH_SHORT).show()
+                    return@addSnapshotListener
                 }
-                adapter.updateList(students)
-            }
-            .addOnFailureListener { exception ->
-                Toast.makeText(this, "Failed to load students: ${exception.message}", Toast.LENGTH_SHORT).show()
+
+                if (result != null) {
+                    val students = result.map { document ->
+                        Student(
+                            name = document.getString("name") ?: "",
+                            registrationNo = document.getString("registrationNo") ?: "",
+                            department = document.getString("department") ?: ""
+                        )
+                    }
+                    adapter.updateList(students)
+                }
             }
     }
 }
