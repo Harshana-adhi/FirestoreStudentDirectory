@@ -88,6 +88,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun loadStudents(department: String? = null) {
+        binding.loadingProgressBar.visibility = android.view.View.VISIBLE
+        binding.statusTextView.visibility = android.view.View.GONE
+
         val query = if (department != null) {
             db.collection("students").whereEqualTo("department", department)
         } else {
@@ -95,12 +98,15 @@ class MainActivity : AppCompatActivity() {
         }
 
         query.addSnapshotListener { result, exception ->
+            binding.loadingProgressBar.visibility = android.view.View.GONE
+
             if (exception != null) {
-                Toast.makeText(this, "Failed to load students: ${exception.message}", Toast.LENGTH_SHORT).show()
+                showStatus("Something went wrong: ${exception.message}")
                 return@addSnapshotListener
             }
 
             if (result != null) {
+                val isFromCache = result.metadata.isFromCache
                 val students = result.map { document ->
                     Student(
                         name = document.getString("name") ?: "",
@@ -109,7 +115,18 @@ class MainActivity : AppCompatActivity() {
                     )
                 }
                 adapter.updateList(students)
+
+                when {
+                    students.isEmpty() -> showStatus("No students found.")
+                    isFromCache -> showStatus("Offline — showing last saved data.")
+                    else -> binding.statusTextView.visibility = android.view.View.GONE
+                }
             }
         }
+    }
+
+    private fun showStatus(message: String) {
+        binding.statusTextView.text = message
+        binding.statusTextView.visibility = android.view.View.VISIBLE
     }
 }
