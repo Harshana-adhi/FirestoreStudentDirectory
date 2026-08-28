@@ -26,6 +26,11 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
+        val settings = com.google.firebase.firestore.FirebaseFirestoreSettings.Builder()
+            .setPersistenceEnabled(true)
+            .build()
+        db.firestoreSettings = settings
+
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
